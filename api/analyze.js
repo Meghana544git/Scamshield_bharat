@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const SYSTEM_PROMPT = `
 You are ScamShield Bharat, an investor-safety assistant built for Indian retail investors.
@@ -83,14 +83,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Message is required." });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.NVIDIA_API_KEY || process.env.NVAPI_API_KEY;
 
     if (!apiKey) {
-      console.warn("⚠️ GEMINI_API_KEY is not set in environment. Falling back to local heuristic analysis.");
+      console.warn("⚠️ NVIDIA_API_KEY (or NVAPI_API_KEY) is not set. Falling back to local heuristic analysis.");
       return res.status(200).json(getHeuristicAnalysis(rawMessage, language));
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const client = new OpenAI({ baseURL: "https://integrate.api.nvidia.com/v1", apiKey });
     const targetLanguage = languageMap[language] || "English";
 
     const userPrompt = `
@@ -123,46 +123,24 @@ Provide:
 Return strictly raw JSON.
 `;
 
-    const modelsToTry = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-flash-latest",
-      "gemini-3.8-flash",
-      "gemini-3.7-flash",
-      "gemini-3.5-flash",
-    ];
-
     let response = null;
-
-    for (const modelName of modelsToTry) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          response = await ai.models.generateContent({
-            model: modelName,
-            contents: `${SYSTEM_PROMPT}\n\n${userPrompt}`,
-            config: {
-              responseMimeType: "application/json",
-              temperature: 0.1,
-            },
-          });
-          if (response?.text?.trim()) {
-            break;
-          }
-        } catch (modelErr) {
-          console.warn(`Model ${modelName} attempt ${attempt} failed:`, modelErr?.message || modelErr);
-          if (attempt === 1) {
-            await new Promise((r) => setTimeout(r, 400));
-          }
-        }
-      }
-      if (response?.text?.trim()) {
-        break;
-      }
+    try {
+      const completion = await client.chat.completions.create({
+        model: "nvidia/nemotron-4-340b-instruct",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 2048,
+      });
+      response = { text: completion.choices?.[0]?.message?.content || "" };
+    } catch (modelErr) {
+      console.warn("NVIDIA NIM request failed:", modelErr?.message || modelErr);
     }
 
     if (!response || !response.text) {
-      console.warn("Gemini API models unavailable. Activating safety heuristic fallback.");
+      console.warn("NVIDIA NIM unavailable. Activating safety heuristic fallback.");
       return res.status(200).json(getHeuristicAnalysis(rawMessage, language));
     }
 
@@ -177,7 +155,7 @@ Return strictly raw JSON.
     try {
       result = JSON.parse(text);
     } catch {
-      console.error("Gemini returned non-JSON output, using heuristic fallback:", text);
+      console.error("NVIDIA NIM returned non-JSON output, using heuristic fallback:", text);
       return res.status(200).json(getHeuristicAnalysis(rawMessage, language));
     }
 
