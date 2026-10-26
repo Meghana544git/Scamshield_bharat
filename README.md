@@ -275,8 +275,9 @@ Users should independently verify important financial information through truste
 
 ### AI
 
-- Google Gemini API  
-  - AI-assisted financial-message analysis  
+- NVIDIA NIM API (OpenAI-compatible client)
+  - Model: `nvidia/nemotron-4-340b-instruct`
+  - AI-assisted financial-message analysis
   - Structured JSON responses  
 
 ### Development
@@ -316,7 +317,7 @@ Users should independently verify important financial information through truste
                        │
                        ▼
 ┌──────────────────────────────────────────────┐
-│               Google Gemini                  │
+│               NVIDIA NIM                  │
 │                                              │
 │     AI-assisted warning-sign analysis        │
 └──────────────────────┬───────────────────────┘
