@@ -83,14 +83,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Message is required." });
     }
 
-    const apiKey = process.env.NVIDIA_API_KEY || process.env.NVAPI_API_KEY;
+    const apiKey = process.env.NEBIUS_API_KEY || process.env.NEBIUS_KEY;
 
     if (!apiKey) {
-      console.warn("⚠️ NVIDIA_API_KEY (or NVAPI_API_KEY) is not set. Falling back to local heuristic analysis.");
+      console.warn("⚠️ NEBIUS_API_KEY (or NEBIUS_KEY) is not set. Falling back to local heuristic analysis.");
       return res.status(200).json(getHeuristicAnalysis(rawMessage, language));
     }
 
-    const client = new OpenAI({ baseURL: "https://integrate.api.nvidia.com/v1", apiKey });
+    const client = new OpenAI({ baseURL: "https://api.studio.nebius.ai/v1", apiKey });
     const targetLanguage = languageMap[language] || "English";
 
     const userPrompt = `
@@ -126,7 +126,7 @@ Return strictly raw JSON.
     let response = null;
     try {
       const completion = await client.chat.completions.create({
-        model: "nvidia/nemotron-4-340b-instruct",
+        model: "nvidia/Nemotron-4-340B-Instruct",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
@@ -136,11 +136,11 @@ Return strictly raw JSON.
       });
       response = { text: completion.choices?.[0]?.message?.content || "" };
     } catch (modelErr) {
-      console.warn("NVIDIA NIM request failed:", modelErr?.message || modelErr);
+      console.warn("Nebius API request failed:", modelErr?.message || modelErr);
     }
 
     if (!response || !response.text) {
-      console.warn("NVIDIA NIM unavailable. Activating safety heuristic fallback.");
+      console.warn("Nebius API unavailable. Activating safety heuristic fallback.");
       return res.status(200).json(getHeuristicAnalysis(rawMessage, language));
     }
 
